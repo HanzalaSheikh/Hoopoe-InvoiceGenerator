@@ -40,7 +40,7 @@ const PDF_CONFIG = {
 };
 
 function App() {
-  const logoUrl = '/public/logo.png';
+  const logoUrl = '/logo.png';
   const [clientInfo, setClientInfo] = useState<ClientInfo>({
     name: '',
     email: '',
@@ -161,7 +161,7 @@ function App() {
         const logoX = PDF_CONFIG.margin; // left margin
         const logoY = 36; // top position
 
-        const logoUrl = 'public/logo.png';
+        const logoUrl = 'logo.png';
         const logoImage = await fetch(logoUrl)
           .then(res => res.blob())
           .then(blob => {
@@ -377,7 +377,7 @@ doc.text('Authorized Signature:', PDF_CONFIG.margin, tableY);
 
 // Add the signature image
 try {
-  const signatureUrl = 'public/signature.png';
+  const signatureUrl = 'signature.png';
   const signatureBlob = await fetch(signatureUrl).then(res => res.blob());
   const signatureBase64 = await new Promise((resolve) => {
     const reader = new FileReader();
@@ -432,7 +432,7 @@ try {
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-6 border border-purple-100">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center justify-center">
-              <span><img src="public/logo.png" alt="Hoopoe Studios Logo" className='w-40 h-25' /></span>
+              <span><img src="logo.png" alt="Hoopoe Studios Logo" className='w-40 h-25' /></span>
             </div>
               <span className="text-sm text-gray-500">Invoice Generator</span>
           </div>
