@@ -215,9 +215,15 @@ function App() {
       const valueX = pageWidth - PDF_CONFIG.margin;
 
       doc.text('Invoice Number:', labelX, rightY);
-      doc.setFont('helvetica', 'normal');
+
+      // Make the invoice number bold and dark
+      doc.setFont('helvetica', 'bold');
       doc.setTextColor(...PDF_CONFIG.colors.darkGray);
       doc.text(invoiceDetails.number, valueX, rightY, { align: 'right' });
+      
+      // Reset back to normal font for next fields
+      doc.setFont('helvetica', 'normal');
+      
 
       rightY += 6;
       doc.setFont('helvetica', 'bold');
@@ -312,9 +318,9 @@ function App() {
           const descLines = doc.splitTextToSize(item.description, pageWidth - (PDF_CONFIG.margin * 2) - 80);
           doc.text(descLines, descX, tableY);
           doc.text(qty.toString(), qtyX, tableY);
-          doc.text(`$${rate.toFixed(2)}`, rateX, tableY);
+          doc.text(`AED ${rate.toFixed(2)}`, rateX, tableY);
           doc.setFont('helvetica', 'bold');
-          doc.text(`$${amount.toFixed(2)}`, amountX, tableY, { align: 'right' });
+          doc.text(`AED ${amount.toFixed(2)}`, amountX, tableY, { align: 'right' });
           doc.setFont('helvetica', 'normal');
 
           tableY += Math.max(8, descLines.length * 5);
@@ -334,7 +340,7 @@ function App() {
       doc.text('Subtotal:', summaryX, tableY);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...PDF_CONFIG.colors.darkGray);
-      doc.text(`$${calculateSubtotal().toFixed(2)}`, pageWidth - PDF_CONFIG.margin - 3, tableY, { align: 'right' });
+      doc.text(`AED ${calculateSubtotal().toFixed(2)}`, pageWidth - PDF_CONFIG.margin - 3, tableY, { align: 'right' });
 
       tableY += 6;
       doc.setFont('helvetica', 'bold');
@@ -342,7 +348,7 @@ function App() {
       doc.text(`Tax (${parseNumber(taxRate)}%):`, summaryX, tableY);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...PDF_CONFIG.colors.darkGray);
-      doc.text(`$${calculateTax().toFixed(2)}`, pageWidth - PDF_CONFIG.margin - 3, tableY, { align: 'right' });
+      doc.text(`AED ${calculateTax().toFixed(2)}`, pageWidth - PDF_CONFIG.margin - 3, tableY, { align: 'right' });
 
       tableY += 8;
       doc.setFillColor(...PDF_CONFIG.colors.accent);
@@ -353,7 +359,7 @@ function App() {
       doc.setTextColor(...PDF_CONFIG.colors.white);
       doc.text('Total:', summaryX, tableY);
       doc.setFontSize(12);
-      doc.text(`$${calculateTotal().toFixed(2)}`, pageWidth - PDF_CONFIG.margin - 3, tableY, { align: 'right' });
+      doc.text(`AED ${calculateTotal().toFixed(2)}`, pageWidth - PDF_CONFIG.margin - 3, tableY, { align: 'right' });
 
       // Signature line
       // tableY += 30;
@@ -618,7 +624,7 @@ try {
                         />
                       </td>
                       <td className="py-3 px-4 text-right font-semibold text-gray-900">
-                        ${(parseNumber(item.quantity) * parseNumber(item.rate)).toFixed(2)}
+                        AED {(parseNumber(item.quantity) * parseNumber(item.rate)).toFixed(2)}
                       </td>
                       <td className="py-3 px-4">
                         <button
@@ -639,15 +645,15 @@ try {
               <div className="w-72 space-y-3 bg-gray-50 p-4 rounded-lg">
                 <div className="flex justify-between py-2">
                   <span className="text-gray-700 font-medium">Subtotal:</span>
-                  <span className="text-gray-900 font-semibold">${calculateSubtotal().toFixed(2)}</span>
+                  <span className="text-gray-900 font-semibold">AED {calculateSubtotal().toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-gray-700 font-medium">Tax ({parseNumber(taxRate)}%):</span>
-                  <span className="text-gray-900 font-semibold">${calculateTax().toFixed(2)}</span>
+                  <span className="text-gray-900 font-semibold">AED {calculateTax().toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between py-3 bg-purple-500 text-white px-4 rounded-lg">
+                <div className="flex justify-between py-3 bg-purple-500 text-white px-1 rounded-lg">
                   <span className="text-lg font-bold">Total:</span>
-                  <span className="text-lg font-bold">${calculateTotal().toFixed(2)}</span>
+                  <span className="text-lg font-bold">AED {calculateTotal().toFixed(2)}</span>
                 </div>
               </div>
             </div>
