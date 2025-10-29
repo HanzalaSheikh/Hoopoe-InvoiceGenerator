@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Plus, Trash2, Download, RotateCcw } from "lucide-react";
+import { doc, getDoc, setDoc, updateDoc, increment } from "firebase/firestore";
+import { db } from "./firebase";
 import jsPDF from "jspdf";
 
 interface LineItem {
