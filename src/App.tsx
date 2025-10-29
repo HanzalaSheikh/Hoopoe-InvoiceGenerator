@@ -631,7 +631,7 @@ function App() {
                       })
                     }
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    placeholder="INV-001"
+                    placeholder="hop-001"
                   />
                 </div>
                 <div>
