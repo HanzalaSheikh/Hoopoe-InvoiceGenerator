@@ -1,8 +1,16 @@
-import { useState } from "react";
+
 import { Plus, Trash2, Download, RotateCcw } from "lucide-react";
 import { doc, getDoc, setDoc, updateDoc, increment } from "firebase/firestore";
-import { db } from "./firebase";
+import { useEffect, useState } from "react";
 import jsPDF from "jspdf";
+import {
+  peekNextInvoiceNumber,
+  reserveInvoiceNumber,
+  uploadInvoicePDF,
+  saveInvoiceToDB,
+} from "./lib/invoiceService";
+
+import { db } from "./lib/firebase";
 
 interface LineItem {
   id: string;
@@ -72,6 +80,23 @@ function App() {
   ]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchNumber = async () => {
+      try {
+        const previewNum = await peekNextInvoiceNumber();
+        setInvoiceDetails((prev) => ({
+          ...prev,
+          number: previewNum,
+        }));
+      } catch (error) {
+        console.error("Error fetching preview number:", error);
+      }
+    };
+    fetchNumber();
+  }, []);
+  
+  
 
   const parseNumber = (val: number | string): number => {
     if (typeof val === "number") return val;
@@ -186,16 +211,17 @@ function App() {
     setIsGenerating(true);
 
     try {
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
 
       // Background
-      doc.setFillColor(...PDF_CONFIG.colors.white);
-      doc.rect(0, 0, pageWidth, pageHeight, "F");
+      pdf.setFillColor(...PDF_CONFIG.colors.white);
+      pdf.rect(0, 0, pageWidth, pageHeight, "F");
 
       // Decorative elements
-      drawDecorativeElements(doc, pageWidth, pageHeight);
+      drawDecorativeElements(pdf, pageWidth, pageHeight);
 
       let yPos = 50;
 
@@ -216,79 +242,79 @@ function App() {
           });
         });
 
-      doc.addImage(logoImage, "PNG", logoX, logoY, logoWidth, logoHeight);
+      pdf.addImage(logoImage, "PNG", logoX, logoY, logoWidth, logoHeight);
 
       // let yPos = logoY + logoHeight + 20; // start client info below logo
 
       // Client Info Section
       yPos += 20;
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...PDF_CONFIG.colors.mediumGray);
-      doc.text("BILL TO", PDF_CONFIG.margin, yPos);
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...PDF_CONFIG.colors.mediumGray);
+      pdf.text("BILL TO", PDF_CONFIG.margin, yPos);
 
       yPos += 7;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...PDF_CONFIG.colors.darkGray);
-      doc.text(clientInfo.name, PDF_CONFIG.margin, yPos);
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(...PDF_CONFIG.colors.darkGray);
+      pdf.text(clientInfo.name, PDF_CONFIG.margin, yPos);
 
       yPos += 5;
-      doc.text(clientInfo.email, PDF_CONFIG.margin, yPos);
+      pdf.text(clientInfo.email, PDF_CONFIG.margin, yPos);
 
       if (clientInfo.company) {
         yPos += 5;
-        doc.text(clientInfo.company, PDF_CONFIG.margin, yPos);
+        pdf.text(clientInfo.company, PDF_CONFIG.margin, yPos);
       }
 
       if (clientInfo.address) {
         yPos += 5;
-        const addressLines = doc.splitTextToSize(clientInfo.address, 80);
-        doc.text(addressLines, PDF_CONFIG.margin, yPos);
+        const addressLines = pdf.splitTextToSize(clientInfo.address, 80);
+        pdf.text(addressLines, PDF_CONFIG.margin, yPos);
         yPos += (addressLines.length - 1) * 5;
       }
 
       // Invoice Details (Right side)
       let rightY = 50;
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...PDF_CONFIG.colors.mediumGray);
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...PDF_CONFIG.colors.mediumGray);
 
       const labelX = pageWidth - PDF_CONFIG.margin - 50;
       const valueX = pageWidth - PDF_CONFIG.margin;
 
-      doc.text("Invoice Number:", labelX, rightY);
+      pdf.text("Invoice Number:", labelX, rightY);
 
       // Make the invoice number bold and dark
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...PDF_CONFIG.colors.darkGray);
-      doc.text(invoiceDetails.number, valueX, rightY, { align: "right" });
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...PDF_CONFIG.colors.darkGray);
+      pdf.text(invoiceDetails.number, valueX, rightY, { align: "right" });
 
       // Reset back to normal font for next fields
-      doc.setFont("helvetica", "normal");
+      pdf.setFont("helvetica", "normal");
 
       rightY += 6;
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...PDF_CONFIG.colors.mediumGray);
-      doc.text("Date:", labelX, rightY);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...PDF_CONFIG.colors.darkGray);
-      doc.text(invoiceDetails.date, valueX, rightY, { align: "right" });
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...PDF_CONFIG.colors.mediumGray);
+      pdf.text("Date:", labelX, rightY);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(...PDF_CONFIG.colors.darkGray);
+      pdf.text(invoiceDetails.date, valueX, rightY, { align: "right" });
 
       rightY += 6;
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...PDF_CONFIG.colors.mediumGray);
-      doc.text("Due Date:", labelX, rightY);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...PDF_CONFIG.colors.darkGray);
-      doc.text(invoiceDetails.dueDate, valueX, rightY, { align: "right" });
+      pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(...PDF_CONFIG.colors.mediumGray);
+      pdf.text("Due Date:", labelX, rightY);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(...PDF_CONFIG.colors.darkGray);
+    pdf.text(invoiceDetails.dueDate, valueX, rightY, { align: "right" });
 
       // Line Items Table
       let tableY = Math.max(yPos + 15, rightY + 15);
 
       // Table header
-      doc.setFillColor(...PDF_CONFIG.colors.primary);
-      doc.rect(
+      pdf.setFillColor(...PDF_CONFIG.colors.primary);
+      pdf.rect(
         PDF_CONFIG.margin,
         tableY,
         pageWidth - PDF_CONFIG.margin * 2,
@@ -296,13 +322,9 @@ function App() {
         "F"
       );
 
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...PDF_CONFIG.colors.white);
-      // doc.text('DESCRIPTION', PDF_CONFIG.margin + 3, tableY + 6.5);
-      // doc.text('QTY', pageWidth - PDF_CONFIG.margin - 65, tableY + 6.5);
-      // doc.text('RATE', pageWidth - PDF_CONFIG.margin - 45, tableY + 6.5);
-      // doc.text('AMOUNT', pageWidth - PDF_CONFIG.margin - 20, tableY + 6.5);
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...PDF_CONFIG.colors.white);
 
       const descX = PDF_CONFIG.margin + 3;
       const qtyX = pageWidth - PDF_CONFIG.margin - 70;
@@ -310,40 +332,18 @@ function App() {
       const amountX = pageWidth - PDF_CONFIG.margin - 3;
 
       // Table Header
-      doc.text("DESCRIPTION", descX, tableY + 6.5);
-      doc.text("QTY", qtyX, tableY + 6.5);
-      doc.text("RATE", rateX, tableY + 6.5);
-      doc.text("AMOUNT", amountX, tableY + 6.5, { align: "right" });
+      pdf.text("DESCRIPTION", descX, tableY + 6.5);
+      pdf.text("QTY", qtyX, tableY + 6.5);
+      pdf.text("RATE", rateX, tableY + 6.5);
+      pdf.text("AMOUNT", amountX, tableY + 6.5, { align: "right" });
 
       // tableY += 10;
       tableY += 16;
 
       // Line items
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...PDF_CONFIG.colors.darkGray);
-
-      // lineItems.forEach((item, index) => {
-      //   const qty = parseNumber(item.quantity);
-      //   const rate = parseNumber(item.rate);
-      //   const amount = qty * rate;
-
-      //   if (index % 2 === 0) {
-      //     doc.setFillColor(...PDF_CONFIG.colors.lightGray);
-      //     doc.rect(PDF_CONFIG.margin, tableY - 4, pageWidth - (PDF_CONFIG.margin * 2), 8, 'F');
-      //   }
-
-      //   const descLines = doc.splitTextToSize(item.description, pageWidth - (PDF_CONFIG.margin * 2) - 80);
-      //   doc.text(descLines, PDF_CONFIG.margin + 2, tableY);
-      //   doc.text(qty.toString(), pageWidth - PDF_CONFIG.margin - 70, tableY);
-      //   doc.text(`$${rate.toFixed(2)}`, pageWidth - PDF_CONFIG.margin - 50, tableY);
-
-      //   doc.setFont('helvetica', 'bold');
-      //   doc.text(`$${amount.toFixed(2)}`, pageWidth - PDF_CONFIG.margin - 3, tableY, { align: 'right' });
-      //   doc.setFont('helvetica', 'normal');
-
-      //   tableY += Math.max(8, descLines.length * 5);
-      // });
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(...PDF_CONFIG.colors.darkGray);
 
       // Summary
 
@@ -356,8 +356,8 @@ function App() {
         const amount = qty * rate;
 
         if (index % 2 === 0) {
-          doc.setFillColor(...PDF_CONFIG.colors.lightGray);
-          doc.rect(
+          pdf.setFillColor(...PDF_CONFIG.colors.lightGray);
+          pdf.rect(
             PDF_CONFIG.margin,
             tableY - 4,
             pageWidth - PDF_CONFIG.margin * 2,
@@ -366,25 +366,25 @@ function App() {
           );
         }
 
-        const descLines = doc.splitTextToSize(
+        const descLines = pdf.splitTextToSize(
           item.description,
           pageWidth - PDF_CONFIG.margin * 2 - 80
         );
-        doc.text(descLines, descX, tableY);
-        doc.text(qty.toString(), qtyX, tableY);
-        doc.text(`${currency.symbol} ${rate.toFixed(2)}`, rateX, tableY);
-        doc.setFont("helvetica", "bold");
-        doc.text(`${currency.symbol} ${amount.toFixed(2)}`, amountX, tableY, {
+        pdf.text(descLines, descX, tableY);
+        pdf.text(qty.toString(), qtyX, tableY);
+        pdf.text(`${currency.symbol} ${rate.toFixed(2)}`, rateX, tableY);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(`${currency.symbol} ${amount.toFixed(2)}`, amountX, tableY, {
           align: "right",
         });
-        doc.setFont("helvetica", "normal");
+        pdf.setFont("helvetica", "normal");
 
         tableY += Math.max(8, descLines.length * 5);
       });
 
-      doc.setDrawColor(229, 231, 235);
-      doc.setLineWidth(0.1);
-      doc.line(
+      pdf.setDrawColor(229, 231, 235);
+      pdf.setLineWidth(0.1);
+      pdf.line(
         PDF_CONFIG.margin,
         tableY,
         pageWidth - PDF_CONFIG.margin,
@@ -394,13 +394,13 @@ function App() {
       tableY += 10;
       const summaryX = pageWidth - PDF_CONFIG.margin - 60;
 
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...PDF_CONFIG.colors.mediumGray);
-      doc.text("Subtotal:", summaryX, tableY);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...PDF_CONFIG.colors.darkGray);
-      doc.text(
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...PDF_CONFIG.colors.mediumGray);
+      pdf.text("Subtotal:", summaryX, tableY);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(...PDF_CONFIG.colors.darkGray);
+      pdf.text(
         `${currency.symbol} ${calculateSubtotal().toFixed(2)}`,
         pageWidth - PDF_CONFIG.margin - 3,
         tableY,
@@ -408,12 +408,12 @@ function App() {
       );
 
       tableY += 6;
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...PDF_CONFIG.colors.mediumGray);
-      doc.text(`Tax (${parseNumber(taxRate)}%):`, summaryX, tableY);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...PDF_CONFIG.colors.darkGray);
-      doc.text(
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...PDF_CONFIG.colors.mediumGray);
+      pdf.text(`Tax (${parseNumber(taxRate)}%):`, summaryX, tableY);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(...PDF_CONFIG.colors.darkGray);
+      pdf.text(
         `${currency.symbol} ${calculateTax().toFixed(2)}`,
         pageWidth - PDF_CONFIG.margin - 3,
         tableY,
@@ -421,15 +421,15 @@ function App() {
       );
 
       tableY += 8;
-      doc.setFillColor(...PDF_CONFIG.colors.accent);
-      doc.rect(summaryX - 5, tableY - 6, 65, 10, "F");
+      pdf.setFillColor(...PDF_CONFIG.colors.accent);
+      pdf.rect(summaryX - 5, tableY - 6, 65, 10, "F");
 
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...PDF_CONFIG.colors.white);
-      doc.text("Total:", summaryX, tableY);
-      doc.setFontSize(12);
-      doc.text(
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...PDF_CONFIG.colors.white);
+      pdf.text("Total:", summaryX, tableY);
+      pdf.setFontSize(12);
+      pdf.text(
         `${currency.symbol} ${calculateTotal().toFixed(2)}`,
         pageWidth - PDF_CONFIG.margin - 3,
         tableY,
@@ -437,23 +437,11 @@ function App() {
       );
 
       // Signature line
-      // tableY += 30;
-      // doc.setFontSize(10);
-      // doc.setFont('helvetica', 'bold');
-      // doc.setTextColor(...PDF_CONFIG.colors.mediumGray);
-      // doc.text('Authorized Signature:', PDF_CONFIG.margin, tableY);
-
-      // tableY += 12;
-      // doc.setDrawColor(200, 200, 200);
-      // doc.setLineWidth(0.5);
-      // doc.line(PDF_CONFIG.margin, tableY, PDF_CONFIG.margin + 60, tableY);
-
-      // Signature line
       tableY += 30;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...PDF_CONFIG.colors.mediumGray);
-      doc.text("Authorized Signature:", PDF_CONFIG.margin, tableY);
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...PDF_CONFIG.colors.mediumGray);
+      pdf.text("Authorized Signature:", PDF_CONFIG.margin, tableY);
 
       // Add the signature image
       try {
@@ -472,7 +460,7 @@ function App() {
         const signatureX = PDF_CONFIG.margin;
         const signatureY = tableY + 3; // a bit below the text
 
-        doc.addImage(
+        pdf.addImage(
           signatureBase64,
           "PNG",
           signatureX,
@@ -485,25 +473,72 @@ function App() {
       }
 
       tableY += 40; // move below the signature
-      doc.setDrawColor(200, 200, 200);
+      pdf.setDrawColor(200, 200, 200);
       // doc.setLineWidth(0.5);
       // doc.line(PDF_CONFIG.margin, tableY, PDF_CONFIG.margin + 60, tableY);
 
       // Footer
-      doc.setFontSize(8);
-      doc.setTextColor(...PDF_CONFIG.colors.mediumGray);
-      doc.text("Hoopoe Studios", pageWidth / 2, pageHeight - 15, {
+      pdf.setFontSize(8);
+      pdf.setTextColor(...PDF_CONFIG.colors.mediumGray);
+      pdf.text("Hoopoe Studios", pageWidth / 2, pageHeight - 15, {
         align: "center",
       });
 
-      doc.save(`invoice-${invoiceDetails.number}.pdf`);
+      pdf.save(`Invoice-${invoiceDetails.number}.pdf`);
     } catch (error) {
       console.error("PDF generation failed:", error);
       setErrors(["Failed to generate PDF. Please try again."]);
     } finally {
       setIsGenerating(false);
     }
+
+    try {
+      const invoiceNumber = await reserveInvoiceNumber();
+      setInvoiceDetails((prev) => ({ ...prev, number: invoiceNumber }));
+    
+      // ✅ Save invoice metadata to Firestore
+      await saveInvoiceToDB({
+        invoiceNumber,
+        client: clientInfo,
+        lineItems,
+        subtotal: calculateSubtotal(),
+        tax: calculateTax(),
+        total: calculateTotal(),
+        currency: currency.symbol,
+      });
+    
+      // ✅ Convert PDF to Blob (modern safe method)
+      const pdfArrayBuffer = pdf.output('arraybuffer');
+      const pdfBlob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
+    
+      // ✅ Upload to Firebase Storage
+      const pdfURL = await uploadInvoicePDF(pdfBlob, invoiceNumber);
+    
+      // ✅ Update record with file link
+      await saveInvoiceToDB({
+        invoiceNumber,
+        client: clientInfo,
+        lineItems,
+        subtotal: calculateSubtotal(),
+        tax: calculateTax(),
+        total: calculateTotal(),
+        currency: currency.symbol,
+        pdfURL,
+      });
+    
+      // ✅ Optional local download
+      pdf.save(`${invoiceNumber}.pdf`);
+    } catch (err) {
+      console.error("Error saving invoice:", err);
+      setErrors(["Failed to save invoice. Please try again."]);
+    } finally {
+      setIsGenerating(false);
+    }
+    
+    
   };
+
+
 
   const clearDraft = () => {
     setClientInfo({ name: "", email: "", company: "", address: "" });
@@ -534,7 +569,7 @@ function App() {
             <span className="text-sm text-gray-500">Invoice Generator</span>
           </div>
 
-          {errors.length > 0 && (
+          {/* {errors.length > 0 && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <h3 className="text-sm font-semibold text-red-800 mb-2">
                 Please fix the following errors:
@@ -545,7 +580,7 @@ function App() {
                 ))}
               </ul>
             </div>
-          )}
+          )} */}
 
           <div className="grid md:grid-cols-2 gap-8 mb-8">
             <div>
@@ -633,7 +668,8 @@ function App() {
                       })
                     }
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    placeholder="hop-001"
+                    placeholder="HOP-00000-001"
+                    readOnly
                   />
                 </div>
                 <div>
